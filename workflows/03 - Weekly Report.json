@@ -1,0 +1,190 @@
+{
+  "name": "03 - Weekly Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "67bf7d52-f75f-4ef9-b3d1-4b4db38ebc0e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "EQRpM4co0fjUQScA",
+          "mode": "list",
+          "cachedResultName": "tickets",
+          "cachedResultUrl": "/projects/YS4XJco571paiFmW/datatables/EQRpM4co0fjUQScA"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "createdAt",
+              "condition": "gte",
+              "keyValue": "={{ $now.minus({days: 7}).toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "3891ca90-3ace-4a77-bbeb-c57a2ded7116",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab all filtered ticket rows\nconst tickets = $input.all().map(item => item.json);\n\nconst total = tickets.length;\nconst byCategory = {};\nconst byUrgency = {};\nconst byStatus = {};\nlet confidenceSum = 0;\n\nfor (const t of tickets) {\n  byCategory[t.category] = (byCategory[t.category] || 0) + 1;\n  byUrgency[t.urgency] = (byUrgency[t.urgency] || 0) + 1;\n  byStatus[t.status] = (byStatus[t.status] || 0) + 1;\n  confidenceSum += Number(t.confidence) || 0;\n}\n\nconst autoResolved = (byStatus['auto_sent'] || 0) + (byStatus['approved_sent'] || 0);\n\nreturn [{\n  json: {\n    weekEnding: $now.toISO().slice(0, 10),\n    totalTickets: total,\n    byCategory,\n    byUrgency,\n    byStatus,\n    autoResolutionRate: total ? Math.round((autoResolved / total) * 100) + '%' : '0%',\n    escalated: byStatus['escalated'] || 0,\n    avgConfidence: total ? Number((confidenceSum / total).toFixed(2)) : 0\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "8a0f1de4-947c-43e5-a78b-9aed77fc14f5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-haiku-4-5-20251001",
+          "mode": "list",
+          "cachedResultName": "claude-haiku-4-5-20251001"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Write a short executive summary (3-4 sentences) of this weekly support report. Mention total volume, auto-resolution rate, and anything notable. Plain text only.\n\n{{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "42e5cf70-1512-4c79-952a-7fb9db082f49",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "GMFwfsE9hwA0FvTA",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "Weekly Support Report",
+        "emailType": "text",
+        "message": "={{ $json.content[0].text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "49597f4c-fa47-41b8-8331-9722e4106894",
+      "name": "Send a message",
+      "webhookId": "dd01efa7-e742-4d46-be99-17a32ad4fcc5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "dgxP8cbakEmlFjLB",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "28117bb0-d696-49df-bc9c-17a289326f43",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "eacdc822ba117711b8e7f214466bffde820b72f8e61b66b6ad8ddae7e1adbc28"
+  },
+  "nodeGroups": [],
+  "id": "A3QtedMoysixZLT1",
+  "tags": []
+}
